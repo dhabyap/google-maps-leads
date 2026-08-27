@@ -19,6 +19,7 @@ class GoogleMapClient extends Model
         'review_count',
         'search_keyword',
         'status',
+        'last_contacted_at',
     ];
 
     protected $casts = [
@@ -26,5 +27,6 @@ class GoogleMapClient extends Model
         'longitude' => 'decimal:7',
         'rating' => 'float',
         'review_count' => 'integer',
+        'last_contacted_at' => 'datetime',
     ];
 }
