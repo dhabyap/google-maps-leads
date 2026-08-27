@@ -374,79 +374,14 @@
             <th>Aksi</th>
           </tr>
         </thead>
-        <tbody>
-          @forelse($clients as $c)
-          <tr class="row" data-name="{{ strtolower($c->business_name) }}"
-            data-jenis="{{ strtolower($c->category ?? '') }}" data-status="{{ $c->status }}"
-            data-hp="{{ strtolower($c->phone_number ?? '') }}" data-alamat="{{ strtolower($c->address ?? '') }}"
-            data-lat="{{ $c->latitude }}" data-lng="{{ $c->longitude }}"
-            data-id="{{ $c->id }}">
-            <td data-label="Bisnis" class="biz">{{ $c->business_name }}</td>
-            <td data-label="Jenis" class="jenis">{{ $c->category ?? '-' }}</td>
-            <td data-label="No. HP" class="hp">{{ $c->phone_number ?? '-' }}</td>
-            <td data-label="Lokasi" class="loc">
-              @if($c->latitude && $c->longitude)
-              <a class="map-link" target="_blank"
-                href="https://www.google.com/maps?q={{ $c->latitude }},{{ $c->longitude }}">
-                📍 {{ Str::limit($c->address ?? '', 60) }}
-              </a>
-              @else
-              <span class="muted">{{ Str::limit($c->address ?? '-', 60) }}</span>
-              @endif
-            </td>
-            <td data-label="Rating">
-              @if($c->rating > 0)
-                <span class="stars">{{ str_repeat('★', round($c->rating)) }}<span class="empty">{{ str_repeat('★', 5 - round($c->rating)) }}</span></span>
-                <div class="rev">{{ number_format($c->rating, 1) }} ({{ $c->review_count }})</div>
-              @else
-                <span class="muted">-</span>
-              @endif
-            </td>
-            <td data-label="Status">
-              <select class="badge {{ $c->status }}" data-id="{{ $c->id }}" onchange="updateStatus(this)">
-                <option value="new" {{ $c->status=='new'?'selected':'' }}>Baru</option>
-                <option value="contacted" {{ $c->status=='contacted'?'selected':'' }}>Sudah Dihubungi</option>
-                <option value="deal" {{ $c->status=='deal'?'selected':'' }}>Deal</option>
-                <option value="rejected" {{ $c->status=='rejected'?'selected':'' }}>Tidak Lanjut</option>
-              </select>
-            </td>
-            <td data-label="Catatan">
-              <textarea class="notes-input" data-id="{{ $c->id }}" placeholder="Tambah catatan..." onblur="updateNotes(this)">{{ $c->notes }}</textarea>
-            </td>
-            <td data-label="Terakhir Kontak" class="muted">
-              @if($c->last_contacted_at)
-                {{ $c->last_contacted_at->format('d/m/Y H:i') }}
-              @else
-                -
-              @endif
-            </td>
-            <td data-label="Aksi" class="actions">
-              @if($c->phone_number)
-              @php
-              $digits = preg_replace('/\D/', '', $c->phone_number);
-              if (str_starts_with($digits, '0')) { $digits = '62' . substr($digits, 1); }
-              elseif (!str_starts_with($digits, '62')) { $digits = '62' . $digits; }
-              $waMsg = "Halo Kak, selamat siang. Saya Putra. Saya lihat {$c->business_name} di Google Maps ulasannya sudah bagus! Kebetulan saya lihat di profilnya belum ada link website. Saya bisa bantu buatin website simpel—supaya pelanggan baru bisa langsung cek daftar harga/layanan dan ada tombol langsung terhubung ke WhatsApp Kakak. Boleh saya kirim contoh tampilan websitenya, Kak? Barangkali cocok untuk {$c->business_name}.";
-              $waLink = "https://wa.me/{$digits}?text=" . urlencode($waMsg);
-              @endphp
-              <a class="wa-btn" target="_blank" href="{{ $waLink }}" onclick="markContacted({{ $c->id }}, this)">Chat WA</a>
-              @else
-              <span class="wa-btn" style="background:#3a3f52;color:#8b8fa3;cursor:not-allowed">No WA</span>
-              @endif
-              <button class="del-btn" data-id="{{ $c->id }}" onclick="deleteLead(this)">🗑</button>
-            </td>
-          </tr>
-          @empty
-          <tr class="row">
-            <td colspan="9" class="empty">Belum ada data. Jalankan scraper dulu.</td>
-          </tr>
-          @endforelse
+        <tbody id="tableBody">
+          @include('radar_rows')
         </tbody>
       </table>
 
       @if($clients->hasPages())
-      <div class="pagination">
-        {{ $clients->links('pagination') }}
+      <div id="paginationContainer">
+        @include('pagination', ['paginator' => $clients])
       </div>
       @endif
     </div>
@@ -464,83 +399,97 @@
     const filterCategory = document.getElementById('filterCategory');
     const filterNoWeb = document.getElementById('filterNoWeb');
     const filterSort = document.getElementById('filterSort');
-    const rows = document.querySelectorAll('#clientTable tbody tr.row');
+    const tableBody = document.getElementById('tableBody');
+    const paginationContainer = document.getElementById('paginationContainer');
 
-    let currentStatusFilter = '';
-    let currentCategoryFilter = '';
-    let noWebOnly = false;
-    let sortBy = '';
+    let isLoading = false;
 
-    // '__noweb' sentinel dipakai kartu "Tanpa Website"
-    function filterByStatus(status) {
-      if (status === '__noweb') {
-        currentStatusFilter = '';
-        noWebOnly = true;
-        filterNoWeb.checked = true;
-        filterStatus.value = '';
-      } else {
-        currentStatusFilter = status;
-        noWebOnly = false;
-        filterNoWeb.checked = false;
-        filterStatus.value = status;
-      }
-      applyFilter();
-    }
-
-    function filterByCategory(category) {
-      currentCategoryFilter = category;
-      filterCategory.value = category;
-      applyFilter();
-    }
-
-    function applyFilter() {
-      const q = search.value.toLowerCase().trim();
-      rows.forEach(r => {
-        const matchesText = r.dataset.name.includes(q) || r.dataset.jenis.includes(q)
-          || r.dataset.hp.includes(q) || r.dataset.alamat.includes(q);
-        const matchesStatus = !currentStatusFilter || r.dataset.status === currentStatusFilter;
-        const matchesKategori = !currentCategoryFilter || r.dataset.jenis === currentCategoryFilter.toLowerCase();
-        const matchesNoWeb = !noWebOnly || (r.dataset.hp === '' ? true : true); // placeholder; server-side filter utama
-        r.style.display = (matchesText && matchesStatus && matchesKategori) ? '' : 'none';
-      });
-      recount();
-    }
-
-    function recount() {
-      const visible = [...rows].filter(r => r.style.display !== 'none');
-      document.getElementById('cTotal').textContent = visible.length;
-      document.getElementById('cDihubungi').textContent = visible.filter(r => r.dataset.status === 'contacted').length;
-      document.getElementById('cDeal').textContent = visible.filter(r => r.dataset.status === 'deal').length;
-      document.getElementById('cGagal').textContent = visible.filter(r => r.dataset.status === 'rejected').length;
-
-      document.querySelectorAll('.stat-card').forEach(card => card.classList.remove('active'));
-      let active = '';
-      if (noWebOnly) active = 'noweb';
-      else if (currentStatusFilter === '') active = 'new';
-      else active = currentStatusFilter;
-      const target = document.querySelector(`.stat-card.${active}`);
-      if (target) target.classList.add('active');
-    }
-
-    search.addEventListener('input', applyFilter);
-    filterStatus.addEventListener('change', (e) => { currentStatusFilter = e.target.value; noWebOnly = false; applyFilter(); });
-    filterCategory.addEventListener('change', (e) => filterByCategory(e.target.value));
-    filterNoWeb.addEventListener('change', (e) => { noWebOnly = e.target.checked; currentStatusFilter = ''; filterStatus.value=''; applyFilter(); });
-    filterSort.addEventListener('change', (e) => { sortBy = e.target.value; submitFilters(); });
-
-    // Server-side filter submit (no_website + sort butuh query DB)
-    function submitFilters() {
+    // Bangun query string dari filter aktif
+    function buildParams(page) {
       const params = new URLSearchParams();
       if (search.value) params.set('keyword', search.value);
       if (filterStatus.value) params.set('status', filterStatus.value);
       if (filterCategory.value) params.set('category', filterCategory.value);
       if (filterNoWeb.checked) params.set('no_website', '1');
       if (filterSort.value) params.set('sort', filterSort.value);
-      window.location.search = params.toString();
+      if (page) params.set('page', page);
+      return params.toString();
     }
 
-    // Initial
-    applyFilter();
+    // Fetch table via AJAX -> swap tbody + pagination + counts (no reload)
+    async function fetchTable(page) {
+      if (isLoading) return;
+      isLoading = true;
+      tableBody.style.opacity = '0.4';
+      try {
+        const res = await fetch('/?' + buildParams(page), {
+          headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+        if (!res.ok) throw new Error('fetch failed');
+        const data = await res.json();
+        tableBody.innerHTML = data.rows;
+        if (paginationContainer) paginationContainer.innerHTML = data.pagination;
+        // counts
+        document.getElementById('cTotal').textContent = data.total;
+        document.getElementById('cNoWeb').textContent = data.counts.no_website;
+        document.getElementById('cDihubungi').textContent = data.counts.contacted;
+        document.getElementById('cDeal').textContent = data.counts.deal;
+        document.getElementById('cGagal').textContent = data.counts.rejected;
+        bindPagination();
+        // update URL tanpa reload (biar bisa di-back)
+        const qs = buildParams(page);
+        history.replaceState(null, '', qs ? '/?' + qs : '/');
+        refreshMap();
+      } catch (e) {
+        console.error(e);
+      } finally {
+        tableBody.style.opacity = '1';
+        isLoading = false;
+      }
+    }
+
+    // Klik pagination (delegasi)
+    function bindPagination() {
+      if (!paginationContainer) return;
+      paginationContainer.querySelectorAll('a').forEach(a => {
+        a.addEventListener('click', (e) => {
+          e.preventDefault();
+          const url = new URL(a.href);
+          fetchTable(url.searchParams.get('page'));
+        });
+      });
+    }
+
+    // Stat card filter
+    function filterByStatus(status) {
+      if (status === '__noweb') {
+        noWebOnly = true;
+        filterNoWeb.checked = true;
+        filterStatus.value = '';
+      } else {
+        noWebOnly = false;
+        filterNoWeb.checked = false;
+        filterStatus.value = status;
+      }
+      fetchTable(1);
+    }
+    let noWebOnly = false;
+
+    function filterByCategory(category) {
+      filterCategory.value = category;
+      fetchTable(1);
+    }
+
+    // Event listeners (AJAX, no reload)
+    let searchTimer;
+    search.addEventListener('input', () => {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => fetchTable(1), 300);
+    });
+    filterStatus.addEventListener('change', () => { noWebOnly = false; fetchTable(1); });
+    filterCategory.addEventListener('change', () => fetchTable(1));
+    filterNoWeb.addEventListener('change', () => { noWebOnly = filterNoWeb.checked; fetchTable(1); });
+    filterSort.addEventListener('change', () => fetchTable(1));
 
     // ---- Auto-save ke DB ----
     async function updateNotes(textareaEl) {
@@ -576,7 +525,8 @@
           const td = selectEl.closest('tr').querySelector('td[data-label="Terakhir Kontak"]');
           if (td) td.textContent = data.last_contacted_at;
         }
-        applyFilter();
+        // refresh counts tanpa reload full
+        fetchTable(getCurrentPage());
       } catch (error) {
         console.error('Error updating status:', error);
         alert('Gagal update status.');
@@ -602,7 +552,7 @@
               const td = row.querySelector('td[data-label="Terakhir Kontak"]');
               if (td) td.textContent = data.last_contacted_at;
             }
-            applyFilter();
+            fetchTable(getCurrentPage());
           }
         } catch (e) { console.error(e); }
       }
@@ -616,38 +566,49 @@
           method: 'DELETE',
           headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content }
         });
-        if (res.ok) { btn.closest('tr').remove(); recount(); }
+        if (res.ok) { btn.closest('tr').remove(); fetchTable(getCurrentPage()); }
         else alert('Gagal hapus.');
       } catch (e) { alert('Gagal hapus.'); }
     }
 
+    function getCurrentPage() {
+      if (!paginationContainer) return 1;
+      const active = paginationContainer.querySelector('.active');
+      return active ? parseInt(active.textContent) : 1;
+    }
+
     // ---- Leaflet map (issue #7) ----
     let map, markers = {};
-    function initMap() {
+    function refreshMap() {
+      const rows = tableBody.querySelectorAll('tr.row[data-id]');
       const withCoord = [...rows].filter(r => r.dataset.lat && r.dataset.lng);
-      if (!withCoord.length) return;
+      if (!withCoord.length) { if (map) map.remove(); map = null; document.getElementById('map').style.display = 'none'; return; }
       const mapEl = document.getElementById('map');
       mapEl.style.display = 'block';
-      map = L.map('map').setView([parseFloat(withCoord[0].dataset.lat), parseFloat(withCoord[0].dataset.lng)], 12);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
+      if (!map) {
+        map = L.map('map').setView([parseFloat(withCoord[0].dataset.lat), parseFloat(withCoord[0].dataset.lng)], 12);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
+      } else {
+        map.eachLayer(l => { if (l instanceof L.Marker) map.removeLayer(l); });
+      }
+      markers = {};
       withCoord.forEach(r => {
         const id = r.dataset.id;
         const m = L.marker([parseFloat(r.dataset.lat), parseFloat(r.dataset.lng)])
           .addTo(map)
           .bindPopup(`<b>${r.querySelector('.biz').textContent}</b><br>${r.dataset.jenis}`);
         markers[id] = m;
-        m.on('click', () => { highlightRow(id); });
-        r.addEventListener('click', () => { if (map) { map.setView(m.getLatLng(), 14); m.openPopup(); } });
+        m.on('click', () => highlightRow(id));
+        r.addEventListener('click', () => { map.setView(m.getLatLng(), 14); m.openPopup(); });
       });
+      setTimeout(() => map.invalidateSize(), 200);
     }
     function highlightRow(id) {
-      document.querySelectorAll('tr.row').forEach(r => r.classList.remove('selected'));
-      const row = document.querySelector(`tr.row[data-id="${id}"]`);
+      tableBody.querySelectorAll('tr.row').forEach(r => r.classList.remove('selected'));
+      const row = tableBody.querySelector(`tr.row[data-id="${id}"]`);
       if (row) row.classList.add('selected');
     }
-    if (document.getElementById('map') && typeof L !== 'undefined') initMap();
-    // fix: peta butuh invalidateSize setelah tampil
-    if (map) setTimeout(() => map.invalidateSize(), 200);
+    if (typeof L !== 'undefined') refreshMap();
   </script>
 </body>
 </html>

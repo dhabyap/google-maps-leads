@@ -65,6 +65,18 @@ class RadarController extends Controller
             ->where('category', '<>', '')
             ->distinct()->orderBy('category')->pluck('category');
 
+        // AJAX request (pagination / filter) -> balikin partial + counts, no full reload
+        if ($request->ajax() || $request->wantsJson()) {
+            $rowsHtml = view('radar_rows', ['clients' => $clients])->render();
+            $paginationHtml = $clients->hasPages() ? view('pagination', ['paginator' => $clients])->render() : '';
+            return response()->json([
+                'rows'       => $rowsHtml,
+                'pagination' => $paginationHtml,
+                'counts'     => $counts,
+                'total'      => GoogleMapClient::count(),
+            ]);
+        }
+
         return view('radar', [
             'clients'    => $clients,
             'total'      => GoogleMapClient::count(),
