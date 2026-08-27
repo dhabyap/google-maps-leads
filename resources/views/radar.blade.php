@@ -207,11 +207,17 @@
     .muted { color: var(--muted); }
 
     .badge {
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
       border: 1px solid;
       border-radius: 6px;
-      padding: 5px 9px;
+      padding: 5px 26px 5px 9px;
       font-size: 0.78rem;
-      background: transparent;
+      background-color: transparent;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'><path d='M1 3l4 4 4-4' stroke='%238b8fa3' stroke-width='1.5' fill='none'/></svg>");
+      background-repeat: no-repeat;
+      background-position: right 9px center;
       color: var(--text);
       cursor: pointer;
     }
