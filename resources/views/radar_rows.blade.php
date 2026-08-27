@@ -49,7 +49,7 @@
     $digits = preg_replace('/\D/', '', $c->phone_number);
     if (str_starts_with($digits, '0')) { $digits = '62' . substr($digits, 1); }
     elseif (!str_starts_with($digits, '62')) { $digits = '62' . $digits; }
-    $waMsg = "Halo Kak, selamat siang. Saya Putra. Saya lihat {$c->business_name} di Google Maps ulasannya sudah bagus! Kebetulan saya lihat di profilnya belum ada link website. Saya bisa bantu buatin website simpel—supaya pelanggan baru bisa langsung cek daftar harga/layanan dan ada tombol langsung terhubung ke WhatsApp Kakak. Boleh saya kirim contoh tampilan websitenya, Kak? Barangkali cocok untuk {$c->business_name}.";
+    $waMsg = "Halo Kak, numpang tanya — {$c->business_name} belum ada website ya? Kalau mau, saya bisa bantu buatin yang simpel aja: langsung ada tombol WhatsApp, pelanggan bisa langsung lihat harga/jadwal. Gratis konsultasi desain dulu, Kak. Boleh minta 5 menit?";
     $waLink = "https://wa.me/{$digits}?text=" . urlencode($waMsg);
     @endphp
     <a class="wa-btn" target="_blank" href="{{ $waLink }}" onclick="markContacted({{ $c->id }}, this)">Chat WA</a>
