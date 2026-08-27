@@ -96,7 +96,7 @@
     /* Stat Cards */
     .stats-grid {
       display: grid;
-      grid-template-columns: repeat(5, 1fr);
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
       gap: 14px;
       margin-bottom: 26px;
     }
@@ -351,7 +351,7 @@
       </select>
     </div>
 
-    <div id="map"></div>
+    <div id="map" style="display:none"></div>
 
     <div class="panel">
       <table id="clientTable">
@@ -440,7 +440,7 @@
 
       @if($clients->hasPages())
       <div class="pagination">
-        {{ $clients->links() }}
+        {{ $clients->links('pagination') }}
       </div>
       @endif
     </div>
@@ -620,8 +620,10 @@
     function initMap() {
       const withCoord = [...rows].filter(r => r.dataset.lat && r.dataset.lng);
       if (!withCoord.length) return;
+      const mapEl = document.getElementById('map');
+      mapEl.style.display = 'block';
       map = L.map('map').setView([parseFloat(withCoord[0].dataset.lat), parseFloat(withCoord[0].dataset.lng)], 12);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
       withCoord.forEach(r => {
         const id = r.dataset.id;
         const m = L.marker([parseFloat(r.dataset.lat), parseFloat(r.dataset.lng)])
@@ -629,7 +631,7 @@
           .bindPopup(`<b>${r.querySelector('.biz').textContent}</b><br>${r.dataset.jenis}`);
         markers[id] = m;
         m.on('click', () => { highlightRow(id); });
-        r.addEventListener('click', () => { map.setView(m.getLatLng(), 14); m.openPopup(); });
+        r.addEventListener('click', () => { if (map) { map.setView(m.getLatLng(), 14); m.openPopup(); } });
       });
     }
     function highlightRow(id) {
@@ -637,7 +639,9 @@
       const row = document.querySelector(`tr.row[data-id="${id}"]`);
       if (row) row.classList.add('selected');
     }
-    if (document.getElementById('map')) initMap();
+    if (document.getElementById('map') && typeof L !== 'undefined') initMap();
+    // fix: peta butuh invalidateSize setelah tampil
+    if (map) setTimeout(() => map.invalidateSize(), 200);
   </script>
 </body>
 </html>

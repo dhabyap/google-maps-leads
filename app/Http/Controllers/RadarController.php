@@ -15,7 +15,7 @@ class RadarController extends Controller
      */
     public function index(Request $request)
     {
-        $perPage = 25;
+        $perPage = 10;
         $query = GoogleMapClient::query();
 
         if ($request->filled('keyword')) {
