@@ -49,7 +49,28 @@
     $digits = preg_replace('/\D/', '', $c->phone_number);
     if (str_starts_with($digits, '0')) { $digits = '62' . substr($digits, 1); }
     elseif (!str_starts_with($digits, '62')) { $digits = '62' . $digits; }
-    $waMsg = "Halo Kak, numpang tanya — {$c->business_name} belum ada website ya? Kalau mau, saya bisa bantu buatin yang simpel aja: langsung ada tombol WhatsApp, pelanggan bisa langsung lihat harga/jadwal. Gratis konsultasi desain dulu, Kak. Boleh minta 5 menit?";
+    
+    // Dynamic message variations - more human/natural
+    $openers = [
+      "Halo Kak, numpang tanya — ",
+      "Assalamualaikum Kak, ",
+      "Siang Kak, ",
+      "Halo Kak, ",
+    ];
+    $openers2 = [
+      " belum ada website ya?",
+      " belum punya website ya?",
+      " belum ada website-nya ya?",
+    ];
+    $closers = [
+      "Gratis konsultasi desain dulu, Kak. Boleh minta 5 menit?",
+      "Saya bisa bantu buatin yang simpel — langsung ada tombol WhatsApp, pelanggan bisa langsung hubungi Kakak. Gratis konsultasi ya!",
+      "Nanti kalau jadi, pelanggan bisa langsung lihat harga/jadwal dan langsung chat WhatsApp. Gratis konsultasi desain, Kak!",
+    ];
+    $opener = $openers[array_rand($openers)];
+    $opener2 = $openers2[array_rand($openers2)];
+    $closer = $closers[array_rand($closers)];
+    $waMsg = $opener . $c->business_name . $opener2 . " Kalau mau, saya bisa bantu buatin yang simpel aja. " . $closer;
     $waLink = "https://wa.me/{$digits}?text=" . urlencode($waMsg);
     @endphp
     <a class="wa-btn" target="_blank" href="{{ $waLink }}" onclick="markContacted({{ $c->id }}, this)">Chat WA</a>
