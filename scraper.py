@@ -27,7 +27,7 @@ except ImportError:
     sys.exit("Playwright belum terinstall. Jalankan: pip install playwright && python -m playwright install chromium")
 
 # ---------------------------------------------------------------- config
-DEFAULT_API_URL = "http://127.0.0.1:8021/api/leads/upsert"
+DEFAULT_API_URL = "http://127.0.0.1:8002/api/leads/upsert"
 DEFAULT_API_KEY = "gm-leads-scraper-2026"
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
