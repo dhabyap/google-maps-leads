@@ -1,58 +1,149 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Radar Klien
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Dashboard prospek website dari hasil scrape Google Maps. Backend Laravel 13,
+frontend Blade (vanilla JS), scraper Python + Playwright.
 
-## About Laravel
+Cocok buat: cari bisnis di suatu kota yang **belum punya website**, lalu di-follow
+up lewat WhatsApp.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+---
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Fitur sekarang
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+- Tabel lead: nama bisnis, jenis, no HP, lokasi (link Google Maps), status, catatan, aksi.
+- Stat card: Total / Sudah Dihubungi / Deal / Tidak Lanjut (bisa di-klik buat filter).
+- Filter: search teks + dropdown status + tab kategori.
+- Edit status & catatan langsung tersimpan ke DB (auto-save, tanpa reload).
+- Tombol "Chat WA" → buka wa.me dengan pesan jualan otomatis.
+- API ingestion buat scraper (`POST /api/leads/upsert`).
 
-## Learning Laravel
+> Lihat daftar yang mau dibikin di tab **Issues** (label P0 / P1 / P2).
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+---
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+## Setup lokal (junior, ikuti urut)
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+### 1. Prereq
+- PHP >= 8.2 + Composer
+- MySQL (Laragon punya ini)
+- Python 3.10+ + pip (buat scraper)
 
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
-
+### 2. Clone
 ```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+git clone https://github.com/dhabyap/google-maps-leads.git
+cd google-maps-leads
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+### 3. Composer install
+```bash
+composer install
+```
 
-## Contributing
+### 4. Env
+```bash
+cp .env.example .env
+php artisan key:generate
+```
+Lalu edit `.env`, set DB + API key:
+```dotenv
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=google_maps_leads
+DB_USERNAME=root
+DB_PASSWORD=
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+SCRAPER_API_KEY=gm-leads-scraper-2026   # harus sama dengan yang dipakai scraper
+```
+> `SCRAPER_API_KEY` WAJIB ada & cocok dengan yang di-pakai scraper (lihat bawah).
+> Jangan commit `.env` — sudah di-ignore.
 
-## Code of Conduct
+### 5. Buat database + migration
+```bash
+# di MySQL: CREATE DATABASE google_maps_leads;
+php artisan migrate
+```
+Migration `create_google_map_clients_table` akan buat tabel `google_map_clients`.
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+### 6. Jalanin server
+```bash
+php artisan serve --host=127.0.0.1 --port=8002
+```
+Buka http://127.0.0.1:8002/
 
-## Security Vulnerabilities
+---
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+## Scraper (isi data)
 
-## License
+Scraper pakai Playwright (bukan API Google resmi) → butuh Chromium.
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+```bash
+pip install playwright
+python -m playwright install chromium
+```
+
+Jalanin:
+```bash
+# default API target: http://127.0.0.1:8021/api/leads/upsert
+python scraper.py --query "Laundry di Bandung" --limit 50
+
+# dry run (cuma print, gak upload):
+python scraper.py --query "Apotek di Bandung" --limit 30 --no-upload
+
+# lihat browser (debug):
+python scraper.py --query "Kafe di Bandung" --limit 20 --headful
+```
+
+### Port mismatch (PENTING)
+Scraper default nembak `:8021`, tapi `php artisan serve` di atas jalan di `:8002`.
+Dua cara bikin cocok:
+
+**Cara A — jalanin serve di 8021:**
+```bash
+php artisan serve --host=127.0.0.1 --port=8021
+```
+
+**Cara B — override URL scraper:**
+```bash
+python scraper.py --query "Laundry di Bandung" --limit 50 \
+  --api-url http://127.0.0.1:8002/api/leads/upsert
+```
+
+API key diambil dari arg `--api-key` atau env `SCRAPER_API_KEY` (default `gm-leads-scraper-2026`).
+Harus sama dengan `SCRAPER_API_KEY` di `.env` Laravel.
+
+---
+
+## Struktur
+
+```
+app/Http/Controllers/
+  RadarController.php   # dashboard GET / + update status/notes
+  LeadController.php    # API upsert + list (protected X-Api-Key)
+app/Models/
+  GoogleMapClient.php   # model tabel google_map_clients
+resources/views/
+  radar.blade.php       # tampilan dashboard (Blade + vanilla JS)
+routes/
+  web.php  api.php
+scraper.py              # Playwright scraper -> POST /api/leads/upsert
+```
+
+## DB: tabel `google_map_clients`
+
+| kolom | keterangan |
+|-------|-----------|
+| google_place_id | unique key dari Google Maps (upsert key) |
+| business_name | nama bisnis |
+| category | jenis bisnis |
+| phone_number | no HP (bisa kosong) |
+| website_url | website (kosong = prospek "tanpa web") |
+| address, latitude, longitude | lokasi |
+| rating, review_count | kualitas (lihat issue #2) |
+| search_keyword | query saat scrape |
+| status | new / contacted / deal / rejected |
+| notes | catatan manual |
+
+## Catatan keamanan (lihat issue #1)
+Dashboard belum pakai login. Jangan expose ke publik sebelum auth dibikin.
+Data lead (HP/alamat) akan kelihatan semua orang.
